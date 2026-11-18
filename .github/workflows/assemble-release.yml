@@ -1,0 +1,32 @@
+# Rebuilds the Windows installer from small pieces (uploaded that way because large uploads failed on the publisher's
+# network), checks its SHA-256, and attaches it to the release.
+name: Assemble release installer
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v1.1.0
+        required: true
+      sha256:
+        description: Expected SHA-256 of Cliproom-Setup-x64.exe
+        required: true
+permissions:
+  contents: write
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Join the pieces and check the result
+        env:
+          TAG: ${{ inputs.tag }}
+          EXPECTED: ${{ inputs.sha256 }}
+        run: |
+          cat "release-parts/$TAG"/part-* > Cliproom-Setup-x64.exe
+          ls -l Cliproom-Setup-x64.exe
+          echo "$(echo "$EXPECTED" | tr 'A-F' 'a-f')  Cliproom-Setup-x64.exe" | sha256sum -c -
+      - name: Attach the installer to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release upload "$TAG" Cliproom-Setup-x64.exe --clobber --repo "$GITHUB_REPOSITORY"
